@@ -7,8 +7,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { firstOfMonth, formatMonthYear, minutesToHours } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { firstOfMonth, formatMonthYear } from "@/lib/utils";
 import { BarChart3, Download } from "lucide-react";
 
 // ---------------------------------------------------------------------------

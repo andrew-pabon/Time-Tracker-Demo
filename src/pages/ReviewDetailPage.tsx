@@ -6,7 +6,6 @@ import {
 } from "@/hooks/useReportingPeriods";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/useToast";
-import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -18,7 +17,6 @@ import {
   minutesToHours,
   truncate,
 } from "@/lib/utils";
-import { cn } from "@/lib/utils";
 import type { PeriodStatus } from "@/lib/constants";
 import { REPORTING_PERIOD_STATUSES } from "@/lib/constants";
 import {

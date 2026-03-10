@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { parseCsvFile, type CsvParseResult, type CsvRow } from "@/lib/csv-parser";
+import { parseCsvFile, type CsvParseResult } from "@/lib/csv-parser";
 import { useCustomerImport, type ImportResult } from "@/hooks/useCustomerImport";
 import { useAdminCustomers } from "@/hooks/useAdminCustomers";
 import { Button } from "@/components/ui/Button";
@@ -9,7 +9,6 @@ import {
   Upload,
   FileSpreadsheet,
   CheckCircle2,
-  AlertTriangle,
   XCircle,
   ArrowRight,
   RotateCcw,
@@ -31,8 +30,8 @@ interface CsvUploadDialogProps {
 // ---------------------------------------------------------------------------
 
 export function CsvUploadDialog({ open, onClose }: CsvUploadDialogProps) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useRef<HTMLDialogElement | null>(null);
+const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [step, setStep] = useState<Step>("select");
   const [fileName, setFileName] = useState("");
@@ -265,7 +264,7 @@ function FileSelectStep({
           Browse Files
         </Button>
         <input
-          ref={fileInputRef}
+          ref={fileInputRef as React.RefObject<HTMLInputElement>}
           type="file"
           accept=".csv,text/csv"
           onChange={onFileInput}

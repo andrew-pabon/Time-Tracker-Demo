@@ -19,7 +19,7 @@ import type { PeriodStatus } from "@/lib/constants";
 import {
   REPORTING_PERIOD_STATUSES,
 } from "@/lib/constants";
-import { ClipboardCheck, Eye, ChevronRight } from "lucide-react";
+import { ClipboardCheck, ChevronRight } from "lucide-react";
 
 // ---------------------------------------------------------------------------
 // Page

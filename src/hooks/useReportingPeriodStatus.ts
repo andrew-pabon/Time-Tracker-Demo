@@ -38,7 +38,7 @@ export function useReportingPeriodStatus(
       if (!data) return null;
 
       return {
-        status: data.status,
+        status: data.status as PeriodStatus,
         isLocked: data.status === "approved",
       };
     },

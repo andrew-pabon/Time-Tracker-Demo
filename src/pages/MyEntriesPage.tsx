@@ -15,7 +15,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/hooks/useToast";
 import { formatDuration, formatDate, truncate, firstOfMonth, todayISO } from "@/lib/utils";
 import type { TimeEntryFormValues } from "@/lib/schemas";
-import type { PeriodStatus } from "@/lib/constants";
 import { Clock, Pencil, Trash2, Lock, X } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -320,7 +319,7 @@ function EntryRow({
                   workstream_id: entry.workstream_id,
                   activity_type_id: entry.activity_type_id,
                   duration_minutes: entry.duration_minutes,
-                  notes: entry.notes,
+                  notes: entry.notes ?? undefined,
                 }}
                 isEditing
                 onSubmit={onUpdate}

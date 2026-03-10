@@ -4,10 +4,8 @@ import { useAuth } from "@/hooks/useAuth";
 import {
   useTimeEntries,
   useCreateTimeEntry,
-  useUpdateTimeEntry,
   useDeleteTimeEntry,
-  type TimeEntryWithNames,
-} from "@/hooks/useTimeEntries";
+  } from "@/hooks/useTimeEntries";
 import { TimeEntryForm } from "@/components/time-entry/TimeEntryForm";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { EmptyState } from "@/components/ui/EmptyState";
