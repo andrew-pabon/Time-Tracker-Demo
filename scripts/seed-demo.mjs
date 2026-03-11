@@ -26,11 +26,13 @@ import { fileURLToPath } from "url";
 // ─── CONFIGURE THESE ──────────────────────────────────────────────────────────
 
 const CONSULTANT_NAMES = [
-  // Add names here, e.g.:
-  // "Sarah Johnson",
-  // "Marcus Williams",
-  // "Priya Patel",
-  // "Derek Chen",
+  "Erica Blair",
+  "Christine Ng",
+  "Dev Patel",
+  "Leslie Guthrie",
+  "AJA Servais",
+  "Martyna Smiech",
+  "Nish Hines",
 ];
 
 const TOTAL_ENTRIES = 500;
