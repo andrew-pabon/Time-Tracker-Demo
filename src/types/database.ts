@@ -416,6 +416,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_date_range_report: {
+        Args: { p_customer_id: string; p_date_from: string; p_date_to: string; p_weekly?: boolean }
+        Returns: {
+          service_line_name: string
+          service_line_order: number
+          total_hours: number
+          total_minutes: number
+          week_start: string
+          workstream_name: string
+          workstream_order: number
+        }[]
+      }
       get_monthly_report: {
         Args: { p_customer_id: string; p_month: string; p_weekly?: boolean }
         Returns: {

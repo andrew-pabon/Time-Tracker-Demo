@@ -25,7 +25,8 @@ export interface ReportingPeriodWithDetails {
 }
 
 export interface PeriodFilters {
-  month?: string;
+  dateFrom?: string;
+  dateTo?: string;
   customerId?: string;
   statuses?: PeriodStatus[];
 }
@@ -69,8 +70,11 @@ export function useReportingPeriods(filters: PeriodFilters = {}) {
         .order("period_month", { ascending: false })
         .order("created_at", { ascending: false });
 
-      if (filters.month) {
-        query = query.eq("period_month", filters.month);
+      if (filters.dateFrom) {
+        query = query.gte("period_month", filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        query = query.lte("period_month", filters.dateTo);
       }
       if (filters.customerId) {
         query = query.eq("customer_id", filters.customerId);

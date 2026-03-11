@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { firstOfMonth, formatMonthYear, minutesToHours } from "@/lib/utils";
+import { firstOfMonth, todayISO, formatMonthYear, minutesToHours } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { PeriodStatus } from "@/lib/constants";
 import {
@@ -32,7 +32,8 @@ export function ReviewPage() {
   const { data: customers } = useCustomers();
 
   // Filters from URL
-  const month = searchParams.get("month") ?? firstOfMonth();
+  const dateFrom = searchParams.get("from") ?? firstOfMonth();
+  const dateTo = searchParams.get("to") ?? todayISO();
   const customerId = searchParams.get("customer") ?? "";
   const statusFilter =
     searchParams.get("status") ?? "draft,in_review,approved";
@@ -40,7 +41,8 @@ export function ReviewPage() {
 
   // Data
   const { data: periods, isLoading } = useReportingPeriods({
-    month: month || undefined,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     customerId: customerId || undefined,
     statuses: Array.from(activeStatuses) as PeriodStatus[],
   });
@@ -109,13 +111,25 @@ export function ReviewPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border border-surface-200 bg-white px-4 py-3">
         <div>
           <span className="mb-1 block text-[11px] font-medium text-surface-400">
-            Month
+            From
           </span>
           <input
-            type="month"
-            value={month.slice(0, 7)}
-            onChange={(e) => updateParam("month", e.target.value + "-01")}
-            className="block w-44 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm"
+            type="date"
+            value={dateFrom}
+            onChange={(e) => updateParam("from", e.target.value)}
+            className="block w-40 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+          />
+        </div>
+
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-surface-400">
+            To
+          </span>
+          <input
+            type="date"
+            value={dateTo}
+            onChange={(e) => updateParam("to", e.target.value)}
+            className="block w-40 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
           />
         </div>
 
