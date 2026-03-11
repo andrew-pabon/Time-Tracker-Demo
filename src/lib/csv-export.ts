@@ -133,13 +133,14 @@ export function exportSignatureCareCsv(
   dateTo: string
 ): void {
   const data: string[][] = [
-    ["Customer", "Date", "Consultant", "Workstream", "Activity Type", "Duration (hrs)", "Notes"],
+    ["Customer", "Date", "Consultant", "Workstream", "Activity Type", "Duration (hrs)", "Notes", "Customer Total (hrs)"],
   ];
 
   for (const group of groups) {
     const sorted = [...group.entries].sort((a, b) =>
       a.entry_date.localeCompare(b.entry_date)
     );
+    const customerTotal = minutesToHours(group.minutes);
     for (const e of sorted) {
       data.push([
         group.name,
@@ -149,9 +150,9 @@ export function exportSignatureCareCsv(
         e.activity_type_name,
         minutesToHours(e.duration_minutes),
         e.notes ?? "",
+        customerTotal,
       ]);
     }
-    data.push([`${group.name} TOTAL`, "", "", "", "", minutesToHours(group.minutes), ""]);
   }
 
   triggerDownload(

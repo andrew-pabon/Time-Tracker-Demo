@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useDateRangeReportData, type StructuredReport } from "@/hooks/useReportData";
 import { useReportingPeriodStatus } from "@/hooks/useReportingPeriodStatus";
@@ -213,51 +213,68 @@ function CustomerSearchCombo({
   value: string;
   onChange: (id: string) => void;
 }) {
-  const [search, setSearch] = useState("");
+  const [inputValue, setInputValue] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!value) {
-      setSearch("");
-    } else {
+    if (!value) setInputValue("");
+    else {
       const found = customers.find((c) => c.id === value);
-      if (found) setSearch(found.name);
+      if (found) setInputValue(found.name);
     }
   }, [value, customers]);
 
-  const filtered = search
-    ? customers.filter((c) =>
-        c.name.toLowerCase().includes(search.toLowerCase())
-      )
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, []);
+
+  const filtered = inputValue
+    ? customers.filter((c) => c.name.toLowerCase().includes(inputValue.toLowerCase()))
     : customers;
 
+  function handleSelect(c: { id: string; name: string }) {
+    onChange(c.id);
+    setInputValue(c.name);
+    setOpen(false);
+  }
+
   return (
-    <div className="flex flex-col gap-1">
+    <div ref={containerRef} className="relative w-56">
       <input
         type="text"
-        value={search}
+        value={inputValue}
         onChange={(e) => {
-          setSearch(e.target.value);
+          setInputValue(e.target.value);
+          setOpen(true);
           if (!e.target.value) onChange("");
         }}
+        onFocus={() => setOpen(true)}
         placeholder="Search customer…"
-        className="block w-56 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+        className="block w-full rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
       />
-      <select
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          const found = customers.find((c) => c.id === e.target.value);
-          setSearch(found?.name ?? "");
-        }}
-        className="block w-56 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm"
-      >
-        <option value="">Select customer…</option>
-        {filtered.map((c) => (
-          <option key={c.id} value={c.id}>
-            {c.name}
-          </option>
-        ))}
-      </select>
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-10 mt-1 w-full rounded-md border border-surface-200 bg-white shadow-lg max-h-60 overflow-auto py-1 text-sm">
+          {filtered.map((c) => (
+            <li
+              key={c.id}
+              onMouseDown={() => handleSelect(c)}
+              className={cn(
+                "cursor-pointer px-3 py-2 hover:bg-surface-50",
+                c.id === value && "bg-brand-50 text-brand-700"
+              )}
+            >
+              {c.name}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -413,18 +430,22 @@ function CustomersOverviewTab({
   dateFrom: string;
   dateTo: string;
 }) {
+  const [filterCustomerId, setFilterCustomerId] = useState("");
+
   if (isLoading) return <LoadingSpinner />;
 
   // Aggregate by customer
-  const byCustomer = new Map<string, { name: string; minutes: number; count: number }>();
+  const byCustomer = new Map<string, { id: string; name: string; minutes: number; count: number }>();
   for (const e of entries) {
-    const existing = byCustomer.get(e.customer_id) ?? { name: e.customer_name, minutes: 0, count: 0 };
+    const existing = byCustomer.get(e.customer_id) ?? { id: e.customer_id, name: e.customer_name, minutes: 0, count: 0 };
     existing.minutes += e.duration_minutes;
     existing.count += 1;
     byCustomer.set(e.customer_id, existing);
   }
 
-  const rows = Array.from(byCustomer.values()).sort((a, b) => b.minutes - a.minutes);
+  const rows = Array.from(byCustomer.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const customerList = rows.map((r) => ({ id: r.id, name: r.name }));
+  const displayRows = filterCustomerId ? rows.filter((r) => r.id === filterCustomerId) : rows;
 
   if (rows.length === 0) {
     return (
@@ -440,46 +461,56 @@ function CustomersOverviewTab({
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-surface-200 bg-white px-4 py-3">
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-surface-400">
+            Filter by Customer
+          </span>
+          <CustomerSearchCombo
+            customers={customerList}
+            value={filterCustomerId}
+            onChange={setFilterCustomerId}
+          />
+        </div>
         <Button variant="secondary" onClick={() => exportOverviewCsv(rows, dateFrom, dateTo)}>
           <Download className="h-4 w-4" />
           Export CSV
         </Button>
       </div>
       <div className="rounded-lg border border-surface-200 bg-white overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-surface-100 text-left">
-            <th className="px-4 py-3 font-medium text-surface-500">Customer</th>
-            <th className="px-4 py-3 font-medium text-surface-500 text-right">Total Hours</th>
-            <th className="px-4 py-3 font-medium text-surface-500 text-right">Entries</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.name} className="border-b border-surface-50 hover:bg-surface-50/40 transition-colors">
-              <td className="px-4 py-2.5 font-medium text-surface-800">{row.name}</td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-surface-700">
-                {minutesToHours(row.minutes)}
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-surface-100 text-left">
+              <th className="px-4 py-3 font-medium text-surface-500">Customer</th>
+              <th className="px-4 py-3 font-medium text-surface-500 text-right">Total Hours</th>
+              <th className="px-4 py-3 font-medium text-surface-500 text-right">Entries</th>
+            </tr>
+          </thead>
+          <tbody>
+            {displayRows.map((row) => (
+              <tr key={row.id} className="border-b border-surface-50 hover:bg-surface-50/40 transition-colors">
+                <td className="px-4 py-2.5 font-medium text-surface-800">{row.name}</td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-surface-700">
+                  {minutesToHours(row.minutes)}
+                </td>
+                <td className="px-4 py-2.5 text-right tabular-nums text-surface-500">
+                  {row.count}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-surface-200 font-semibold">
+              <td className="px-4 py-3 text-surface-800">Total</td>
+              <td className="px-4 py-3 text-right tabular-nums text-surface-800">
+                {minutesToHours(rows.reduce((s, r) => s + r.minutes, 0))}
               </td>
-              <td className="px-4 py-2.5 text-right tabular-nums text-surface-500">
-                {row.count}
+              <td className="px-4 py-3 text-right tabular-nums text-surface-800">
+                {rows.reduce((s, r) => s + r.count, 0)}
               </td>
             </tr>
-          ))}
-        </tbody>
-        <tfoot>
-          <tr className="border-t-2 border-surface-200 font-semibold">
-            <td className="px-4 py-3 text-surface-800">Total</td>
-            <td className="px-4 py-3 text-right tabular-nums text-surface-800">
-              {minutesToHours(rows.reduce((s, r) => s + r.minutes, 0))}
-            </td>
-            <td className="px-4 py-3 text-right tabular-nums text-surface-800">
-              {rows.reduce((s, r) => s + r.count, 0)}
-            </td>
-          </tr>
-        </tfoot>
-      </table>
+          </tfoot>
+        </table>
       </div>
     </div>
   );
