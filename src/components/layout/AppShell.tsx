@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Sidebar } from "./Sidebar";
 
@@ -11,6 +11,7 @@ import { Sidebar } from "./Sidebar";
  */
 export function AppShell() {
   const { user, isLoading } = useAuth();
+  const location = useLocation();
 
   // Still resolving auth
   if (isLoading) {
@@ -21,9 +22,9 @@ export function AppShell() {
     );
   }
 
-  // Not authenticated
+  // Not authenticated — preserve the intended path so LoginPage can redirect back
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
   return (
