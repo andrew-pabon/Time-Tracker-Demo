@@ -56,23 +56,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error: null,
   });
 
-  /** Fetch profile + role for a given auth user. */
+  /** Fetch (or create) profile + role for a given auth user. */
   const fetchUserProfile = useCallback(
     async (authUser: User): Promise<UserProfile | null> => {
       try {
-        // Fetch profile
+        // Upsert profile — handles the case where the auth trigger didn't fire
+        // (e.g. trigger wasn't installed when the user first signed up).
         const { data: profile, error: profileErr } = await supabase
           .from("profiles")
+          .upsert(
+            {
+              id: authUser.id,
+              email: authUser.email ?? "",
+              full_name:
+                authUser.user_metadata?.full_name ??
+                authUser.user_metadata?.name ??
+                null,
+              avatar_url:
+                authUser.user_metadata?.avatar_url ??
+                authUser.user_metadata?.picture ??
+                null,
+            },
+            { onConflict: "id", ignoreDuplicates: false }
+          )
           .select("id, email, full_name, avatar_url")
-          .eq("id", authUser.id)
           .single();
 
         if (profileErr || !profile) {
-          console.error("Failed to fetch profile:", profileErr);
+          console.error("Failed to upsert profile:", profileErr);
           return null;
         }
 
-        // Fetch role
+        // Fetch role — created by trigger on signup, or seed data for existing users.
         const { data: roleRow, error: roleErr } = await supabase
           .from("user_roles")
           .select("role")
