@@ -79,6 +79,37 @@ export function useReportData(
   });
 }
 
+export function useDateRangeReportData(
+  customerId: string | undefined,
+  dateFrom: string | undefined,
+  dateTo: string | undefined,
+  weekly: boolean = false,
+  enabled: boolean = false
+) {
+  return useQuery({
+    queryKey: ["report-range", customerId, dateFrom, dateTo, weekly],
+    queryFn: async (): Promise<StructuredReport> => {
+      if (!customerId || !dateFrom || !dateTo) {
+        return emptyReport();
+      }
+
+      const { data, error } = await supabase.rpc("get_date_range_report", {
+        p_customer_id: customerId,
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
+        p_weekly: weekly,
+      });
+
+      if (error) throw error;
+
+      const rows = (data ?? []) as ReportRow[];
+      return structureReport(rows);
+    },
+    enabled: enabled && !!customerId && !!dateFrom && !!dateTo,
+    staleTime: 60 * 1000,
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Structure the flat RPC rows into a nested group hierarchy
 // ---------------------------------------------------------------------------
