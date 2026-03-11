@@ -1,9 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useDateRangeReportData, type StructuredReport } from "@/hooks/useReportData";
 import { useReportingPeriodStatus } from "@/hooks/useReportingPeriodStatus";
 import { useAllTimeEntries, type AllTimeEntryRow } from "@/hooks/useAllTimeEntries";
-import { exportReportCsv } from "@/lib/csv-export";
+import {
+  exportReportCsv,
+  exportOverviewCsv,
+  exportSignatureCareCsv,
+  exportDashboardCsv,
+} from "@/lib/csv-export";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -166,17 +171,94 @@ export function ReportsPage() {
       )}
 
       {activeTab === "overview" && (
-        <CustomersOverviewTab entries={allEntries ?? []} isLoading={allLoading} />
+        <CustomersOverviewTab
+          entries={allEntries ?? []}
+          isLoading={allLoading}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+        />
       )}
 
       {activeTab === "signature-care" && (
-        <SignatureCareTab entries={allEntries ?? []} isLoading={allLoading} />
+        <SignatureCareTab
+          entries={allEntries ?? []}
+          isLoading={allLoading}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+        />
       )}
 
       {activeTab === "dashboard" && (
-        <DashboardTab entries={allEntries ?? []} isLoading={allLoading} />
+        <DashboardTab
+          entries={allEntries ?? []}
+          isLoading={allLoading}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+        />
       )}
     </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Searchable customer combo (text filter + dropdown)
+// ---------------------------------------------------------------------------
+
+function CustomerSearchCombo({
+  customers,
+  value,
+  onChange,
+}: {
+  customers: { id: string; name: string }[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    if (!value) {
+      setSearch("");
+    } else {
+      const found = customers.find((c) => c.id === value);
+      if (found) setSearch(found.name);
+    }
+  }, [value, customers]);
+
+  const filtered = search
+    ? customers.filter((c) =>
+        c.name.toLowerCase().includes(search.toLowerCase())
+      )
+    : customers;
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        type="text"
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          if (!e.target.value) onChange("");
+        }}
+        placeholder="Search customer…"
+        className="block w-56 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm focus:border-brand-500 focus:ring-1 focus:ring-brand-500"
+      />
+      <select
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          const found = customers.find((c) => c.id === e.target.value);
+          setSearch(found?.name ?? "");
+        }}
+        className="block w-56 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm"
+      >
+        <option value="">Select customer…</option>
+        {filtered.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 }
 
@@ -229,18 +311,11 @@ function DetailedReportTab({
           <span className="mb-1 block text-[11px] font-medium text-surface-400">
             Customer
           </span>
-          <select
+          <CustomerSearchCombo
+            customers={customers}
             value={customerId}
-            onChange={(e) => setCustomerId(e.target.value)}
-            className="block w-56 rounded-md border border-surface-300 bg-white px-3 py-1.5 text-sm shadow-sm"
-          >
-            <option value="">Select customer…</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            onChange={setCustomerId}
+          />
         </div>
 
         <label className="flex cursor-pointer items-center gap-2">
@@ -330,9 +405,13 @@ function DetailedReportTab({
 function CustomersOverviewTab({
   entries,
   isLoading,
+  dateFrom,
+  dateTo,
 }: {
   entries: AllTimeEntryRow[];
   isLoading: boolean;
+  dateFrom: string;
+  dateTo: string;
 }) {
   if (isLoading) return <LoadingSpinner />;
 
@@ -360,7 +439,14 @@ function CustomersOverviewTab({
   }
 
   return (
-    <div className="rounded-lg border border-surface-200 bg-white overflow-x-auto">
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button variant="secondary" onClick={() => exportOverviewCsv(rows, dateFrom, dateTo)}>
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+      <div className="rounded-lg border border-surface-200 bg-white overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-surface-100 text-left">
@@ -394,6 +480,7 @@ function CustomersOverviewTab({
           </tr>
         </tfoot>
       </table>
+      </div>
     </div>
   );
 }
@@ -405,10 +492,16 @@ function CustomersOverviewTab({
 function SignatureCareTab({
   entries,
   isLoading,
+  dateFrom,
+  dateTo,
 }: {
   entries: AllTimeEntryRow[];
   isLoading: boolean;
+  dateFrom: string;
+  dateTo: string;
 }) {
+  const [filterCustomerId, setFilterCustomerId] = useState("");
+
   if (isLoading) return <LoadingSpinner />;
 
   const scEntries = entries.filter((e) => e.service_line_name === "Signature Care");
@@ -426,19 +519,44 @@ function SignatureCareTab({
   }
 
   // Group by customer
-  const byCustomer = new Map<string, { name: string; minutes: number; entries: AllTimeEntryRow[] }>();
+  const byCustomer = new Map<string, { id: string; name: string; minutes: number; entries: AllTimeEntryRow[] }>();
   for (const e of scEntries) {
-    const existing = byCustomer.get(e.customer_id) ?? { name: e.customer_name, minutes: 0, entries: [] };
+    const existing = byCustomer.get(e.customer_id) ?? { id: e.customer_id, name: e.customer_name, minutes: 0, entries: [] };
     existing.minutes += e.duration_minutes;
     existing.entries.push(e);
     byCustomer.set(e.customer_id, existing);
   }
 
-  const groups = Array.from(byCustomer.values()).sort((a, b) => b.minutes - a.minutes);
+  const groups = Array.from(byCustomer.values()).sort((a, b) => a.name.localeCompare(b.name));
+  const customerList = groups.map((g) => ({ id: g.id, name: g.name }));
+  const filteredGroups = filterCustomerId
+    ? groups.filter((g) => g.id === filterCustomerId)
+    : groups;
 
   return (
     <div className="space-y-4">
-      {groups.map((group) => (
+      {/* Controls bar */}
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-lg border border-surface-200 bg-white px-4 py-3">
+        <div>
+          <span className="mb-1 block text-[11px] font-medium text-surface-400">
+            Filter by Customer
+          </span>
+          <CustomerSearchCombo
+            customers={customerList}
+            value={filterCustomerId}
+            onChange={setFilterCustomerId}
+          />
+        </div>
+        <Button
+          variant="secondary"
+          onClick={() => exportSignatureCareCsv(groups, dateFrom, dateTo)}
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+
+      {filteredGroups.map((group) => (
         <div key={group.name} className="rounded-lg border border-surface-200 bg-white overflow-x-auto">
           {/* Customer header */}
           <div className="flex items-center justify-between border-b border-surface-100 bg-surface-50/70 px-4 py-2.5">
@@ -489,9 +607,13 @@ function SignatureCareTab({
 function DashboardTab({
   entries,
   isLoading,
+  dateFrom,
+  dateTo,
 }: {
   entries: AllTimeEntryRow[];
   isLoading: boolean;
+  dateFrom: string;
+  dateTo: string;
 }) {
   if (isLoading) return <LoadingSpinner />;
 
@@ -541,22 +663,35 @@ function DashboardTab({
   const totalMinutes = entries.reduce((s, e) => s + e.duration_minutes, 0);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      <DashboardTable
-        title="By Consultant"
-        rows={consultantRows}
-        totalMinutes={totalMinutes}
-      />
-      <DashboardTable
-        title="By Customer"
-        rows={customerRows}
-        totalMinutes={totalMinutes}
-      />
-      <DashboardTable
-        title="By Activity Type"
-        rows={activityRows}
-        totalMinutes={totalMinutes}
-      />
+    <div className="space-y-3">
+      <div className="flex justify-end">
+        <Button
+          variant="secondary"
+          onClick={() =>
+            exportDashboardCsv(consultantRows, customerRows, activityRows, dateFrom, dateTo)
+          }
+        >
+          <Download className="h-4 w-4" />
+          Export CSV
+        </Button>
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <DashboardTable
+          title="By Consultant"
+          rows={consultantRows}
+          totalMinutes={totalMinutes}
+        />
+        <DashboardTable
+          title="By Customer"
+          rows={customerRows}
+          totalMinutes={totalMinutes}
+        />
+        <DashboardTable
+          title="By Activity Type"
+          rows={activityRows}
+          totalMinutes={totalMinutes}
+        />
+      </div>
     </div>
   );
 }
