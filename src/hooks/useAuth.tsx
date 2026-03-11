@@ -121,8 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (cancelled) return;
 
       if (!user) {
-        // Profile unloadable (e.g. stale session) — wipe it so next visit is clean
-        await supabase.auth.signOut();
+        // Profile unloadable (e.g. stale session) — wipe it so next visit is clean.
+        // Use scope:'local' to avoid a network call (DB may be unreachable).
+        await supabase.auth.signOut({ scope: "local" });
         if (!cancelled) {
           setState({ session: null, user: null, isLoading: false, error: null });
         }
@@ -141,7 +142,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } catch {
         // Timed out or unexpected failure — clear stale session so the user
         // sees the login page instead of a perpetual spinner.
-        await supabase.auth.signOut();
+        // Use scope:'local' to avoid another hanging network call.
+        await supabase.auth.signOut({ scope: "local" });
         if (!cancelled) {
           setState({ session: null, user: null, isLoading: false, error: null });
         }
