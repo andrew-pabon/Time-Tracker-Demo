@@ -105,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function init() {
+    async function doInit() {
       const {
         data: { session },
       } = await supabase.auth.getSession();
@@ -120,12 +120,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await fetchUserProfile(session.user);
       if (cancelled) return;
 
-      setState({
-        session,
-        user,
-        isLoading: false,
-        error: user ? null : "Failed to load user profile.",
-      });
+      if (!user) {
+        // Profile unloadable (e.g. stale session) — wipe it so next visit is clean
+        await supabase.auth.signOut();
+        if (!cancelled) {
+          setState({ session: null, user: null, isLoading: false, error: null });
+        }
+        return;
+      }
+
+      setState({ session, user, isLoading: false, error: null });
+    }
+
+    async function init() {
+      const timeout = new Promise<void>((_, reject) =>
+        setTimeout(() => reject(new Error("auth_timeout")), 6000)
+      );
+      try {
+        await Promise.race([doInit(), timeout]);
+      } catch {
+        // Timed out or unexpected failure — clear stale session so the user
+        // sees the login page instead of a perpetual spinner.
+        await supabase.auth.signOut();
+        if (!cancelled) {
+          setState({ session: null, user: null, isLoading: false, error: null });
+        }
+      }
     }
 
     init();
