@@ -171,7 +171,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (event === "SIGNED_IN" || event === "TOKEN_REFRESHED") {
+      if (event === "TOKEN_REFRESHED") {
+        // Token rotated — profile is unchanged, just update the session object.
+        setState((prev) => ({ ...prev, session }));
+        return;
+      }
+
+      if (event === "SIGNED_IN") {
         setState((prev) => ({ ...prev, isLoading: true }));
         const user = await fetchUserProfile(session.user);
         setState({
