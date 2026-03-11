@@ -100,63 +100,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   // -------------------------------------------------------------------------
-  // Bootstrap: check existing session on mount
-  // -------------------------------------------------------------------------
-  useEffect(() => {
-    let cancelled = false;
-
-    async function doInit() {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (cancelled) return;
-
-      if (!session?.user) {
-        setState({ session: null, user: null, isLoading: false, error: null });
-        return;
-      }
-
-      const user = await fetchUserProfile(session.user);
-      if (cancelled) return;
-
-      if (!user) {
-        // Profile unloadable (e.g. stale session) — wipe it so next visit is clean.
-        // Use scope:'local' to avoid a network call (DB may be unreachable).
-        await supabase.auth.signOut({ scope: "local" });
-        if (!cancelled) {
-          setState({ session: null, user: null, isLoading: false, error: null });
-        }
-        return;
-      }
-
-      setState({ session, user, isLoading: false, error: null });
-    }
-
-    async function init() {
-      const timeout = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("auth_timeout")), 8000)
-      );
-      try {
-        await Promise.race([doInit(), timeout]);
-      } catch {
-        // Timed out or unexpected failure — clear stale session so the user
-        // sees the login page instead of a perpetual spinner.
-        // Use scope:'local' to avoid another hanging network call.
-        await supabase.auth.signOut({ scope: "local" });
-        if (!cancelled) {
-          setState({ session: null, user: null, isLoading: false, error: null });
-        }
-      }
-    }
-
-    init();
-    return () => {
-      cancelled = true;
-    };
-  }, [fetchUserProfile]);
-
-  // -------------------------------------------------------------------------
   // Listen for auth state changes (sign-in, sign-out, token refresh)
   // -------------------------------------------------------------------------
   useEffect(() => {

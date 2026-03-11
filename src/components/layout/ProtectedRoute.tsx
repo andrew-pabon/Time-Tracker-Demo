@@ -17,7 +17,7 @@ interface ProtectedRouteProps {
  * While auth is loading → render a full-page loading state.
  */
 export function ProtectedRoute({ minRole }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+  const { user, session, isLoading } = useAuth();
   const { toast } = useToast();
   const hasToasted = useRef(false);
 
@@ -37,6 +37,12 @@ export function ProtectedRoute({ minRole }: ProtectedRouteProps) {
   // Still loading auth state
   if (isLoading) {
     return <LoadingScreen />;
+  }
+
+  // Session is valid but profile couldn't be loaded (e.g. cold DB) — don't
+  // force re-login, just let the user refresh to retry.
+  if (!user && session) {
+    return <DatabaseUnavailableScreen />;
   }
 
   // Not authenticated
@@ -61,6 +67,33 @@ function LoadingScreen() {
       <div className="flex flex-col items-center gap-3">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-surface-300 border-t-brand-600" />
         <p className="text-sm text-surface-500">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Shown when the user is authenticated but the database couldn't be reached
+ * (e.g. Supabase free-tier cold start). Prompts a refresh rather than
+ * forcing re-login.
+ */
+function DatabaseUnavailableScreen() {
+  return (
+    <div className="flex h-screen items-center justify-center bg-surface-50">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <p className="text-base font-medium text-surface-800">
+          Having trouble connecting
+        </p>
+        <p className="max-w-xs text-sm text-surface-500">
+          The database took too long to respond. This can happen after a period
+          of inactivity. Please refresh to try again.
+        </p>
+        <button
+          onClick={() => window.location.reload()}
+          className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-700"
+        >
+          Refresh
+        </button>
       </div>
     </div>
   );
