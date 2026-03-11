@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      if (event === "SIGNED_IN") {
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") {
         setState((prev) => ({ ...prev, isLoading: true }));
         // IMPORTANT: this callback must always complete — Supabase processes
         // onAuthStateChange callbacks sequentially, so if fetchUserProfile()
