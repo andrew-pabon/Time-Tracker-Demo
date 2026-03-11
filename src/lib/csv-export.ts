@@ -1,4 +1,6 @@
 import type { StructuredReport } from "@/hooks/useReportData";
+import type { AllTimeEntryRow } from "@/hooks/useAllTimeEntries";
+import { minutesToHours, formatDate } from "@/lib/utils";
 
 /**
  * Generate a CSV string from structured report data and trigger a browser download.
@@ -68,32 +70,129 @@ export function exportReportCsv(
   totalRow.push(report.grandTotalHours.toFixed(2));
   rows.push(totalRow);
 
-  // Build CSV string
-  const csv = rows
-    .map((row) =>
-      row.map((cell) => {
-        // Escape cells containing commas, quotes, or newlines
-        if (/[",\n\r]/.test(cell)) {
-          return `"${cell.replace(/"/g, '""')}"`;
-        }
-        return cell;
-      }).join(",")
-    )
-    .join("\n");
+  const safeName = customerName.replace(/[^a-zA-Z0-9_-]/g, "_");
+  const monthStr = month.slice(0, 7); // "2025-06"
+  triggerDownload(buildCsv(rows), `${safeName}_${monthStr}_report.csv`);
+}
 
-  // Download
+// ---------------------------------------------------------------------------
+// Helper
+// ---------------------------------------------------------------------------
+
+function csvEscape(cell: string): string {
+  if (/[",\n\r]/.test(cell)) return `"${cell.replace(/"/g, '""')}"`;
+  return cell;
+}
+
+function buildCsv(rows: string[][]): string {
+  return rows.map((row) => row.map(csvEscape).join(",")).join("\n");
+}
+
+function triggerDownload(csv: string, filename: string): void {
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
-  const safeName = customerName.replace(/[^a-zA-Z0-9_-]/g, "_");
-  const monthStr = month.slice(0, 7); // "2025-06"
   a.href = url;
-  a.download = `${safeName}_${monthStr}_report.csv`;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
+// ---------------------------------------------------------------------------
+// Customers Overview export
+// ---------------------------------------------------------------------------
+
+export function exportOverviewCsv(
+  rows: { name: string; minutes: number; count: number }[],
+  dateFrom: string,
+  dateTo: string
+): void {
+  const data: string[][] = [["Customer", "Total Hours", "Entries"]];
+  for (const r of rows) {
+    data.push([r.name, minutesToHours(r.minutes), String(r.count)]);
+  }
+  const totalMins = rows.reduce((s, r) => s + r.minutes, 0);
+  const totalCount = rows.reduce((s, r) => s + r.count, 0);
+  data.push(["TOTAL", minutesToHours(totalMins), String(totalCount)]);
+
+  triggerDownload(
+    buildCsv(data),
+    `customers_overview_${dateFrom}_${dateTo}.csv`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Signature Care export
+// ---------------------------------------------------------------------------
+
+export function exportSignatureCareCsv(
+  groups: { name: string; minutes: number; entries: AllTimeEntryRow[] }[],
+  dateFrom: string,
+  dateTo: string
+): void {
+  const data: string[][] = [
+    ["Customer", "Date", "Consultant", "Workstream", "Activity Type", "Duration (hrs)", "Notes"],
+  ];
+
+  for (const group of groups) {
+    const sorted = [...group.entries].sort((a, b) =>
+      a.entry_date.localeCompare(b.entry_date)
+    );
+    for (const e of sorted) {
+      data.push([
+        group.name,
+        formatDate(e.entry_date),
+        e.consultant_name,
+        e.workstream_name,
+        e.activity_type_name,
+        minutesToHours(e.duration_minutes),
+        e.notes ?? "",
+      ]);
+    }
+    data.push([`${group.name} TOTAL`, "", "", "", "", minutesToHours(group.minutes), ""]);
+  }
+
+  triggerDownload(
+    buildCsv(data),
+    `signature_care_${dateFrom}_${dateTo}.csv`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard export
+// ---------------------------------------------------------------------------
+
+export function exportDashboardCsv(
+  consultantRows: { name: string; minutes: number; count: number }[],
+  customerRows: { name: string; minutes: number; count: number }[],
+  activityRows: { name: string; minutes: number; count: number }[],
+  dateFrom: string,
+  dateTo: string
+): void {
+  function section(
+    title: string,
+    rows: { name: string; minutes: number; count: number }[]
+  ): string[][] {
+    const out: string[][] = [[title, "Hours", "Entries"]];
+    for (const r of rows) {
+      out.push([r.name, minutesToHours(r.minutes), String(r.count)]);
+    }
+    out.push([]); // blank separator row
+    return out;
+  }
+
+  const data: string[][] = [
+    ...section("By Consultant", consultantRows),
+    ...section("By Customer", customerRows),
+    ...section("By Activity Type", activityRows),
+  ];
+
+  triggerDownload(buildCsv(data), `dashboard_${dateFrom}_${dateTo}.csv`);
+}
+
+// ---------------------------------------------------------------------------
 
 /**
  * Format a week_start date as a short header label like "Jun 2–8".
