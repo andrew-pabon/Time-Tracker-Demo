@@ -1,15 +1,18 @@
-import { Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { Timer } from "lucide-react";
 
 export function LoginPage() {
   const { user, isLoading, error, signInWithGoogle } = useAuth();
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const sessionExpired = searchParams.get("reason") === "session_expired";
 
-  // If already logged in, go straight to dashboard
+  // Redirect back to wherever the user was trying to go (defaults to dashboard)
+  const from = (location.state as { from?: string })?.from ?? "/";
+
   if (!isLoading && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={from} replace />;
   }
 
   return (
