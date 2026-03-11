@@ -104,11 +104,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // -------------------------------------------------------------------------
   useEffect(() => {
     let cancelled = false;
+    const effectId = Math.random().toString(36).slice(2, 6);
+    console.log(`[auth:${effectId}] effect started`);
 
     async function doInit() {
+      console.log(`[auth:${effectId}] getSession() start`);
       const {
         data: { session },
       } = await supabase.auth.getSession();
+      console.log(`[auth:${effectId}] getSession() done, cancelled=${cancelled}, hasSession=${!!session?.user}`);
 
       if (cancelled) return;
 
@@ -117,12 +121,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      console.log(`[auth:${effectId}] fetchUserProfile() start`);
       const user = await fetchUserProfile(session.user);
+      console.log(`[auth:${effectId}] fetchUserProfile() done, cancelled=${cancelled}, user=${!!user}`);
       if (cancelled) return;
 
       if (!user) {
-        // Profile unloadable (e.g. stale session) — wipe it so next visit is clean.
-        // Use scope:'local' to avoid a network call (DB may be unreachable).
+        console.log(`[auth:${effectId}] no profile — signing out locally`);
         await supabase.auth.signOut({ scope: "local" });
         if (!cancelled) {
           setState({ session: null, user: null, isLoading: false, error: null });
@@ -135,23 +140,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     async function init() {
       const timeout = new Promise<void>((_, reject) =>
-        setTimeout(() => reject(new Error("auth_timeout")), 6000)
+        setTimeout(() => {
+          console.log(`[auth:${effectId}] TIMEOUT fired`);
+          reject(new Error("auth_timeout"));
+        }, 6000)
       );
       try {
         await Promise.race([doInit(), timeout]);
-      } catch {
-        // Timed out or unexpected failure — clear stale session so the user
-        // sees the login page instead of a perpetual spinner.
-        // Use scope:'local' to avoid another hanging network call.
+        console.log(`[auth:${effectId}] init() resolved normally`);
+      } catch (e) {
+        console.log(`[auth:${effectId}] init() caught:`, e);
         await supabase.auth.signOut({ scope: "local" });
+        console.log(`[auth:${effectId}] signOut done, cancelled=${cancelled}`);
         if (!cancelled) {
           setState({ session: null, user: null, isLoading: false, error: null });
+          console.log(`[auth:${effectId}] setState(isLoading:false) called`);
         }
       }
     }
 
     init();
     return () => {
+      console.log(`[auth:${effectId}] effect cleanup (cancelled=true)`);
       cancelled = true;
     };
   }, [fetchUserProfile]);
@@ -163,6 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log(`[auth:onAuthStateChange] event=${event}, hasSession=${!!session?.user}`);
       if (event === "SIGNED_OUT" || !session?.user) {
         setState({
           session: null,
@@ -180,8 +191,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (event === "SIGNED_IN") {
+        console.log(`[auth:onAuthStateChange] SIGNED_IN — fetching profile`);
         setState((prev) => ({ ...prev, isLoading: true }));
         const user = await fetchUserProfile(session.user);
+        console.log(`[auth:onAuthStateChange] SIGNED_IN profile done, user=${!!user}`);
         setState({
           session,
           user,
